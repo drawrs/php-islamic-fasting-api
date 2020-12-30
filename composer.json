@@ -1,0 +1,12 @@
+{
+    "name": "hilman/fasting_calendar",
+    "authors": [
+        {
+            "name": "Rizal Hilman",
+            "email": "rizal@udacoding.com"
+        }
+    ],
+    "require": {
+        "nesbot/carbon": "^2.43"
+    }
+}

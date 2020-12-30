@@ -1,4 +1,6 @@
 <?php
+ini_set('date.timezone', 'Asia/Jakarta');
+
 /**
 * Curl send get request, support HTTPS protocol
 * @param string $url The request url
@@ -68,8 +70,17 @@ function removeYearFromDate($date) {
 
 $dates = csvToArray('jadwal.csv');
 // $string = file_get_contents("islamic_date_2020.json");
-$string = getRequest("http://api.aladhan.com/v1/gToHCalendar/".date('m/Y'));
-$islamic_calendar = json_decode($string, true);
+$string1 = getRequest("http://api.aladhan.com/v1/gToHCalendar/".date('m/Y'));
+$string2 = getRequest("http://api.aladhan.com/v1/gToHCalendar/".date('m/Y', strtotime('first day of +1 month')));
+
+
+$islamic_calendar = json_decode($string1, true);
+$islamic_calendar2 = json_decode($string2, true);
+
+$calendar_data_merged = array_merge($islamic_calendar['data'],$islamic_calendar2['data']);
+$islamic_calendar['data'] = $calendar_data_merged;
+
+// print_r(json_encode($islamic_calendar));
 //13-05
 // print_r(json_encode($dates));
 $fastingCalendar = [];
@@ -86,15 +97,55 @@ foreach ($dates as $key => $value) {
     }
 }
 
+
 foreach ($islamic_calendar['data'] as $key => $value) {
-    $fasting = $fastingCalendar[removeYearFromDate($value['hijri']['date'])];
+    $currentDate = date("d-m-Y");
+    $fasting = isset($fastingCalendar[removeYearFromDate($value['hijri']['date'])]) ? $fastingCalendar[removeYearFromDate($value['hijri']['date'])] : null;
+
+    if (empty($fasting)) {
+
+        switch ($value['gregorian']['weekday']['en']) {
+            case 'Monday':
+                $fasting = ['event_name' => "Puasa Senin & Kamis", 'faidah' => "Dihadapkannya berbagai amalan pada Allah di hari Senin dan Kamis.", 'reference' => 'lorem ipsum'];
+                break;
+            case 'Thursday':
+                $fasting = ['event_name' => "Puasa Senin & Kamis", 'faidah' => "Dihadapkannya berbagai amalan pada Allah di hari Senin dan Kamis.", 'reference' => 'lorem ipsum'];
+                break;
+
+            default:
+                $fasting = null;
+                break;
+        }
+    }
+
+    $date1 = new DateTime('00:00:00');
+    $date2 = new DateTime($value['gregorian']['date']);
+
+    $interval = date_diff($date1, $date2);
+    // return print_r($interval->format("%d"));
+    switch ($interval->format("%d")) {
+        case 0:
+            $value['gregorian']['dateTitle'] = "Hari ini";
+            break;
+        case 1:
+            $value['gregorian']['dateTitle'] = "Besok";
+            break;
+        default:
+            $value['gregorian']['dateTitle'] = $interval->format('%a Hari lagi');
+            break;
+    }
     $data = [
         'gregorian' => $value['gregorian'],
         'hijri' => $value['hijri'],
         'fasting' => $fasting
     ];
-    // remove non fasting date
-    if (!empty($fasting)) {
+
+
+    
+    // remove non fasting date & expired date
+    
+    if (!empty($fasting) && strtotime($value['gregorian']['date']) >= strtotime($currentDate)) {
+
         // unset($islamic_calendar['data'][$key]);
         // Create new group
         $islamic_calendar['result'][] = $data;
@@ -102,6 +153,7 @@ foreach ($islamic_calendar['data'] as $key => $value) {
 
 
 }
+
 
 // Remove unnecessery part
 unset($islamic_calendar['data']);
